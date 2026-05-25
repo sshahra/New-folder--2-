@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Internship Atlas | Live Opportunity Explorer</title>
+    <meta name="description" content="Explore live internship JSON feeds with filters, resume matching, and update history.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,500;6..72,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script defer src="https://unpkg.com/mammoth@1.8.0/mammoth.browser.min.js"></script>
+    <script defer src="app.js"></script>
+  </head>
+  <body>
+    <header class="hero">
+      <nav class="nav shell">
+        <div class="brand">
+          <span class="brand-mark">IA</span>
+          <span>Internship Atlas</span>
+        </div>
+        <a class="text-link" href="https://github.com/SimplifyJobs/Summer2026-Internships/blob/dev/.github/scripts/listings.json" target="_blank" rel="noreferrer">View source JSON</a>
+      </nav>
+      <div class="hero-grid shell">
+        <div>
+          <p class="eyebrow">LIVE JOB FEED EXPLORER</p>
+          <h1>Find the roles worth your application.</h1>
+          <p class="lead">Search and filter current internship postings, watch new additions, and privately compare your resume against role metadata.</p>
+          <div class="action-row">
+            <button class="button primary" id="refreshButton" type="button">Refresh listings</button>
+            <button class="button subtle" id="toggleSourcesButton" type="button">Manage feeds</button>
+          </div>
+        </div>
+        <aside class="sync-card" aria-label="Sync information">
+          <p class="eyebrow">DATA STATUS</p>
+          <div class="sync-state" id="syncState">Loading live data...</div>
+          <dl class="sync-list">
+            <div>
+              <dt>Last checked</dt>
+              <dd id="lastChecked">--</dd>
+            </div>
+            <div>
+              <dt>Upstream update</dt>
+              <dd id="upstreamUpdated">--</dd>
+            </div>
+          </dl>
+          <label class="select-label" for="autoRefresh">
+            Auto-refresh while open
+            <select id="autoRefresh">
+              <option value="0">Off</option>
+              <option value="15">Every 15 minutes</option>
+              <option value="60">Every hour</option>
+            </select>
+          </label>
+        </aside>
+      </div>
+    </header>
+
+    <main class="shell main-grid">
+      <section class="stats" aria-label="Dashboard counts">
+        <article>
+          <span>Loaded postings</span>
+          <strong id="statLoaded">--</strong>
+        </article>
+        <article>
+          <span>Relevant and active</span>
+          <strong id="statRelevant">--</strong>
+        </article>
+        <article>
+          <span>Showing now</span>
+          <strong id="statShowing">--</strong>
+        </article>
+        <article>
+          <span>New since refresh</span>
+          <strong id="statNew">--</strong>
+        </article>
+      </section>
+
+      <section class="panel filters-panel">
+        <div class="panel-title">
+          <div>
+            <p class="eyebrow">FILTERS</p>
+            <h2>Refine your search</h2>
+          </div>
+          <button class="text-button" id="resetFiltersButton" type="button">Reset filters</button>
+        </div>
+        <div class="filter-grid">
+          <label class="field span-two">
+            Search company or title
+            <input id="searchInput" type="search" placeholder="Software, NVIDIA, product...">
+          </label>
+          <label class="field">
+            Category
+            <select id="categoryFilter"><option value="">All categories</option></select>
+          </label>
+          <label class="field">
+            Sponsorship
+            <select id="sponsorshipFilter"><option value="">Any sponsorship status</option></select>
+          </label>
+          <label class="field">
+            Location includes
+            <input id="locationFilter" type="text" placeholder="New York, Remote, CA...">
+          </label>
+          <label class="field">
+            Degree
+            <select id="degreeFilter"><option value="">Any degree</option></select>
+          </label>
+          <label class="field">
+            Posted on or after
+            <input id="minDateFilter" type="date" value="2026-01-01">
+          </label>
+          <label class="field">
+            Posted on or before
+            <input id="maxDateFilter" type="date">
+          </label>
+          <label class="field">
+            Feed
+            <select id="sourceFilter"><option value="">All feeds</option></select>
+          </label>
+          <label class="field">
+            Sort by
+            <select id="sortFilter">
+              <option value="updated-desc">Recently updated</option>
+              <option value="posted-desc">Recently posted</option>
+              <option value="company-asc">Company A-Z</option>
+              <option value="match-desc">Best resume match</option>
+            </select>
+          </label>
+        </div>
+        <fieldset class="terms" id="termFilters">
+          <legend>Term or season</legend>
+        </fieldset>
+        <div class="toggle-row">
+          <label class="check"><input id="activeOnlyFilter" type="checkbox" checked> Open/active roles only</label>
+          <label class="check"><input id="visibleOnlyFilter" type="checkbox"> Publicly visible only</label>
+          <label class="check"><input id="matchedOnlyFilter" type="checkbox" disabled> Resume matches only</label>
+        </div>
+        <p class="hint">Postings before January 1, 2026 are hidden by default. Clear the posted-after date to include historical records.</p>
+      </section>
+
+      <aside class="panel resume-panel">
+        <p class="eyebrow">RESUME MATCHER</p>
+        <h2>See likely fits</h2>
+        <p class="small-copy">Upload or paste a resume. Analysis stays in your browser and scores only visible role metadata, not full qualifications.</p>
+        <label class="upload" for="resumeFile">
+          <span>Upload resume</span>
+          <small>PDF, DOCX, TXT, or MD</small>
+          <input id="resumeFile" type="file" accept=".pdf,.docx,.txt,.md,text/plain,application/pdf">
+        </label>
+        <label class="field">
+          Or paste resume text
+          <textarea id="resumeText" rows="7" placeholder="Paste experience, skills, and preferred role keywords..."></textarea>
+        </label>
+        <div class="action-row">
+          <button class="button primary compact" id="analyzeResumeButton" type="button">Analyze fit</button>
+          <button class="button subtle compact" id="clearResumeButton" type="button">Clear</button>
+        </div>
+        <p class="status-message" id="resumeStatus" aria-live="polite">No resume analyzed.</p>
+        <div class="skill-chips" id="resumeSkills"></div>
+      </aside>
+
+      <section class="panel listings-panel">
+        <div class="panel-title table-title">
+          <div>
+            <p class="eyebrow">POSTINGS</p>
+            <h2 id="resultHeading">Live roles</h2>
+          </div>
+          <div class="page-tools">
+            <label class="select-label rows" for="pageSize">Rows
+              <select id="pageSize">
+                <option>25</option>
+                <option selected>50</option>
+                <option>100</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th class="match-column">Match</th>
+                <th>Role</th>
+                <th>Term</th>
+                <th>Location</th>
+                <th>Posted</th>
+                <th>Updated</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="listingsBody">
+              <tr><td class="empty-row" colspan="8">Loading postings...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <span id="paginationSummary">--</span>
+          <div>
+            <button class="button subtle compact" id="previousPageButton" type="button">Previous</button>
+            <button class="button subtle compact" id="nextPageButton" type="button">Next</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel log-panel">
+        <div class="panel-title">
+          <div>
+            <p class="eyebrow">REFRESH LOG</p>
+            <h2>What changed</h2>
+          </div>
+          <button class="text-button" id="clearLogButton" type="button">Clear log</button>
+        </div>
+        <p class="small-copy">Change tracking applies to postings dated on or after January 1, 2026 and is saved in this browser.</p>
+        <div id="changeLog" class="change-log">
+          <p class="empty-copy">A first snapshot will be recorded after data loads.</p>
+        </div>
+      </section>
+
+      <section class="panel sources-panel hidden" id="sourcesPanel">
+        <div class="panel-title">
+          <div>
+            <p class="eyebrow">DATA FEEDS</p>
+            <h2>Attach another listing JSON</h2>
+          </div>
+          <button class="text-button" id="closeSourcesButton" type="button">Close</button>
+        </div>
+        <p class="small-copy">Add feeds with the same listing fields as SimplifyJobs. Public URLs must permit browser cross-origin requests.</p>
+        <form id="sourceForm" class="source-form">
+          <label class="field">
+            Feed name
+            <input name="name" required placeholder="Fall 2026 Internships">
+          </label>
+          <label class="field">
+            Raw JSON URL
+            <input name="url" type="url" required placeholder="https://raw.githubusercontent.com/.../listings.json">
+          </label>
+          <button class="button primary compact" type="submit">Add feed</button>
+        </form>
+        <div id="sourceList" class="source-list"></div>
+      </section>
+    </main>
+    <footer class="footer shell">
+      <p>Listings are sourced from third-party feeds. Confirm availability and requirements on the employer application page before applying.</p>
+    </footer>
+  </body>
+</html>
